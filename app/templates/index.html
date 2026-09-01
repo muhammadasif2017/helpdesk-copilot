@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acme Helpdesk</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Acme Helpdesk</h1>
+    <span class="badge">internal</span>
+  </header>
+
+  <main>
+    <section class="tickets">
+      <h2>Open tickets</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Customer</th><th>Subject</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for t in tickets %}
+          <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.customer }}</td>
+            <td>{{ t.subject }}</td>
+            <td><span class="status status-{{ t.status }}">{{ t.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="assistant">
+      <h2>Support assistant</h2>
+      <p class="hint">Ask about policy: returns, shipping, refunds, accounts. Answers cite the knowledge base.</p>
+      <div id="chat-log"></div>
+      <form id="chat-form">
+        <input id="chat-input" type="text" placeholder="e.g. What is the return window for shoes?" autocomplete="off">
+        <button type="submit">Ask</button>
+      </form>
+    </aside>
+  </main>
+
+  <script src="/static/chat.js"></script>
+</body>
+</html>
