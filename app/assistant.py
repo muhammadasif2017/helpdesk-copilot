@@ -128,7 +128,7 @@ def _run(messages: list[dict], scope: tools.Scope | None = None) -> Iterator[dic
                 # State-changing calls are proposed, never executed by the model.
                 # The tool result says so explicitly, so the model reports the
                 # action as pending rather than claiming it happened.
-                proposal = approvals.propose(call["name"], arguments)
+                proposal = approvals.propose(call["name"], arguments, scope)
                 event = {
                     "proposal": {
                         "id": proposal.id,

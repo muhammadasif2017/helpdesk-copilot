@@ -27,10 +27,10 @@ ORDERS: dict[int, Order] = {
 }
 
 TICKETS = [
-    {"id": 101, "customer": "Dana R.", "subject": "Wrong size shoes, want to return", "status": "open", "order_id": 4471},
-    {"id": 102, "customer": "Leo M.", "subject": "Package marked delivered but missing", "status": "open", "order_id": 8812},
-    {"id": 103, "customer": "Priya K.", "subject": "Can't reset account password", "status": "pending", "order_id": 5310},
-    {"id": 104, "customer": "Sam T.", "subject": "Charged twice for one order", "status": "open", "order_id": 6204},
+    {"id": 101, "customer": "Dana R.", "email": "dana.r@example.com", "subject": "Wrong size shoes, want to return", "status": "open", "order_id": 4471},
+    {"id": 102, "customer": "Leo M.", "email": "leo.m@example.com", "subject": "Package marked delivered but missing", "status": "open", "order_id": 8812},
+    {"id": 103, "customer": "Priya K.", "email": "priya.k@example.com", "subject": "Can't reset account password", "status": "pending", "order_id": 5310},
+    {"id": 104, "customer": "Sam T.", "email": "sam.t@example.com", "subject": "Charged twice for one order", "status": "open", "order_id": 6204},
 ]
 
 
@@ -46,6 +46,7 @@ class Account:
 
 ACCOUNTS: dict[str, Account] = {
     "dana.r@example.com": Account("dana.r@example.com", "Dana R.", False, 0, "4417", "94107"),
+    "leo.m@example.com": Account("leo.m@example.com", "Leo M.", False, 0, "5512", "60614"),
     "priya.k@example.com": Account("priya.k@example.com", "Priya K.", True, 5, "8823", "10011"),
     "sam.t@example.com": Account("sam.t@example.com", "Sam T.", True, 5, "6190", "73301"),
 }

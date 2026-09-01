@@ -32,6 +32,7 @@ class Scope:
 
     ticket_id: int | None = None
     order_id: int | None = None
+    email: str | None = None
 
 
 def scope_for(ticket_id: Any) -> Scope:
@@ -41,11 +42,17 @@ def scope_for(ticket_id: Any) -> Scope:
         return Scope()
     if ticket is None:
         return Scope()
-    return Scope(ticket_id=ticket["id"], order_id=ticket.get("order_id"))
+    return Scope(
+        ticket_id=ticket["id"],
+        order_id=ticket.get("order_id"),
+        email=ticket.get("email"),
+    )
 
 
-# Tools that receive the turn's scope. Everything else is scope-independent.
-SCOPED = {"lookup_order"}
+# Every tool is scoped. A tool that reaches customer data — reading it or
+# changing it — is limited to the ticket being worked, so an out-of-scope target
+# is unreachable rather than merely visible in an approval prompt.
+SCOPED = {"lookup_order", "escalate_ticket", "unlock_account"}
 
 TOOL_SPECS: list[dict] = [
     {
@@ -156,11 +163,22 @@ def lookup_order(order_id: Any, scope: Scope | None = None) -> dict:
     return {"order": order}
 
 
-def escalate_ticket(ticket_id: Any, reason: str = "") -> dict:
+def escalate_ticket(ticket_id: Any, reason: str = "", scope: Scope | None = None) -> dict:
     try:
         ticket_id = int(ticket_id)
     except (TypeError, ValueError):
         return {"error": f"ticket_id must be a number, got {ticket_id!r}"}
+
+    scope = scope or Scope()
+    if scope.ticket_id is None:
+        return {"error": "No ticket is open, so escalation is not available."}
+    if ticket_id != scope.ticket_id:
+        return {
+            "error": (
+                f"Ticket {ticket_id} is not the open ticket. "
+                f"Only ticket {scope.ticket_id} can be escalated from here."
+            )
+        }
 
     ticket = store.get_ticket(ticket_id)
     if ticket is None:
@@ -172,13 +190,26 @@ def escalate_ticket(ticket_id: Any, reason: str = "") -> dict:
     return {"escalated": {"ticket_id": ticket_id, "reason": reason, "status": updated["status"]}}
 
 
-def unlock_account(email: str = "", last4: str = "", billing_zip: str = "") -> dict:
+def unlock_account(
+    email: str = "", last4: str = "", billing_zip: str = "", scope: Scope | None = None
+) -> dict:
     """Unlock an account, enforcing the identity check from kb/accounts.md.
 
     The verification requirement lives here rather than in the system prompt on
     purpose: a prompt rule is advice to the model, and a prompt injection can
     talk a model out of advice. It cannot talk this function out of a comparison.
     """
+    scope = scope or Scope()
+    if scope.email is None:
+        return {"error": "No ticket is open, so account unlocks are not available."}
+    if (email or "").strip().lower() != scope.email:
+        return {
+            "error": (
+                f"{email!r} is not the customer on ticket {scope.ticket_id}. "
+                "Only that customer's account can be unlocked from here."
+            )
+        }
+
     account = store.get_account(email or "")
     if account is None:
         return {"error": f"No account found for {email!r}."}

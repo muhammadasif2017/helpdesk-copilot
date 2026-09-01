@@ -127,7 +127,9 @@ def test_blank_question_closes_the_stream_without_calling_the_model(client):
 # --- the approval gate -----------------------------------------------------
 
 
-def propose_escalation(client, monkeypatch, ticket_id=101):
+def propose_escalation(client, monkeypatch, ticket_id=101, open_ticket=None):
+    """Propose escalating `ticket_id` while `open_ticket` is the one being worked."""
+    open_ticket = ticket_id if open_ticket is None else open_ticket
     stub_model(
         monkeypatch,
         [
@@ -138,7 +140,10 @@ def propose_escalation(client, monkeypatch, ticket_id=101):
         ],
         [text_delta("I've proposed escalating that ticket for your approval.")],
     )
-    response = client.post("/api/chat", json={"question": f"Escalate ticket {ticket_id}"})
+    response = client.post(
+        "/api/chat",
+        json={"question": f"Escalate ticket {ticket_id}", "ticket_id": open_ticket},
+    )
     events = [json.loads(e) for e in sse_events(response.text)[:-1]]
     return next(e["proposal"] for e in events if "proposal" in e)
 
@@ -205,6 +210,19 @@ def test_the_client_cannot_smuggle_its_own_tool_and_arguments(client, monkeypatc
 
     assert response.json()["tool"] == "escalate_ticket"
     assert store.get_account("priya.k@example.com").locked is True
+
+
+def test_approving_an_out_of_scope_proposal_still_refuses(client, monkeypatch):
+    """The gate is not the last line of defense — authorization is.
+
+    Even a human clicking Approve cannot escalate a ticket that is not the one
+    being worked, because the proposal executes under the scope it was made in.
+    """
+    proposal = propose_escalation(client, monkeypatch, ticket_id=104, open_ticket=101)
+
+    response = client.post("/api/approve", json={"proposal_id": proposal["id"]})
+    assert "not the open ticket" in response.json()["result"]["error"]
+    assert store.get_ticket(104)["status"] == "open"
 
 
 def test_declining_a_proposal_executes_nothing(client, monkeypatch):

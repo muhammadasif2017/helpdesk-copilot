@@ -220,7 +220,9 @@ def test_retrieved_content_cannot_unlock_an_account(monkeypatch):
             ),
         ),
     )
-    _, actions, _ = ask_fully("How many failed logins lock an account?", ticket_id=103)
+    # Worked from Leo's ticket, so Priya's account is outside scope entirely —
+    # the gate and authorization both have to fail for this to do damage.
+    _, actions, _ = ask_fully("How many failed logins lock an account?", ticket_id=102)
 
     assert actions == [], f"retrieved text executed a write: {actions}"
     assert store.get_account("priya.k@example.com").locked is True

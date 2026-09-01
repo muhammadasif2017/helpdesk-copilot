@@ -19,13 +19,19 @@ class Proposal:
     id: str
     tool: str
     arguments: dict[str, Any] = field(default_factory=dict)
+    # The authorization the turn held when this was proposed. Carried with the
+    # proposal so approving it later cannot execute under wider permissions than
+    # the conversation that produced it.
+    scope: Any = None
 
 
 _PENDING: dict[str, Proposal] = {}
 
 
-def propose(tool: str, arguments: dict) -> Proposal:
-    proposal = Proposal(id=secrets.token_urlsafe(12), tool=tool, arguments=arguments)
+def propose(tool: str, arguments: dict, scope: Any = None) -> Proposal:
+    proposal = Proposal(
+        id=secrets.token_urlsafe(12), tool=tool, arguments=arguments, scope=scope
+    )
     _PENDING[proposal.id] = proposal
     return proposal
 

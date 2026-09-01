@@ -63,7 +63,7 @@ async def approve(request: Request):
     return {
         "tool": proposal.tool,
         "arguments": proposal.arguments,
-        "result": tools.execute(proposal.tool, proposal.arguments),
+        "result": tools.execute(proposal.tool, proposal.arguments, proposal.scope),
     }
 
 

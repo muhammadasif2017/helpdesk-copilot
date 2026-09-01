@@ -32,8 +32,8 @@ can act inside a product has to be auditable by the person whose ticket it is.
 | Tool | Kind | Behavior |
 |---|---|---|
 | `lookup_order` | read, scoped | Order status, carrier, tracking, charges — **only** for the order attached to the open ticket. |
-| `escalate_ticket` | write, gated | Proposes escalation to a specialist. Nothing changes until a person approves. |
-| `unlock_account` | write, gated | Proposes an unlock. The tool itself requires card last-4 **and** billing ZIP to match. |
+| `escalate_ticket` | write, gated, scoped | Proposes escalation. Nothing changes until a person approves, and only the open ticket can be escalated. |
+| `unlock_account` | write, gated, scoped | Proposes an unlock for the ticket's customer only. The tool itself requires card last-4 **and** billing ZIP to match. |
 
 Three controls, none of which is a prompt instruction:
 
@@ -43,9 +43,16 @@ an opaque proposal id — never a tool name or arguments — so an approval cann
 turned into "run any tool with any arguments". Proposals are single-use, so an
 approval cannot be replayed.
 
-**Reads are authorized, not trusted.** A support agent works one ticket at a
-time, so `lookup_order` serves only that ticket's order. Retrieved text can talk
-the model into requesting a different customer's order; the tool refuses it.
+**Every tool is authorized against the open ticket.** A support agent works one
+ticket at a time, so a lookup serves only that ticket's order, only that ticket
+can be escalated, and only that customer's account can be unlocked — correct card
+details for someone you aren't helping are still a refusal. Retrieved text can
+talk the model into requesting another customer's data; the tool refuses it.
+
+The scope travels with the proposal, so approving a write executes under the
+authorization the turn held, never wider. A human clicking Approve on an
+out-of-scope action still gets a refusal — the gate is not the last line of
+defense, authorization is.
 
 **Preconditions live in the tool, not the prompt.** `unlock_account` enforces the
 identity check from `kb/accounts.md` itself. A prompt rule is advice to a model,
