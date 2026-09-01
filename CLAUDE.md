@@ -112,3 +112,7 @@ The eval suite is the repo's main credibility signal. Treat it as product code.
 - First LLM call after boot is much slower than the rest — Ollama is loading the
   model into RAM. Roughly 15-20s per call after that.
 - Windows converts LF→CRLF on checkout; files are committed as LF.
+- **Never gate a merge on `pytest ... | tail`.** A shell pipeline reports the
+  *last* command's status, so a failing suite piped through `tail` exits 0 and
+  looks green. Read the summary line, or use `${PIPESTATUS[0]}`. This nearly put
+  a red suite on `main`.

@@ -79,6 +79,9 @@ Backend options (set in `.env`):
 | **Groq** (recommended) | `https://api.groq.com/openai/v1` | free tier, fast; get key at console.groq.com |
 | **Ollama** (offline) | `http://localhost:11434/v1` | `ollama pull qwen2.5:3b`; use a plain instruct model — reasoning models (Qwen3, R1) add ~a minute per answer on CPU |
 
+The eval judge is a second, stronger model — `ollama pull qwen2.5:7b-instruct`,
+set as `JUDGE_MODEL`. It is used by tests only; the product never calls it.
+
 ## Run
 
 ```bash
@@ -144,8 +147,35 @@ question ("What is our drone delivery policy?"). An answer counts as a refusal
 when it signals that its sources don't cover the question or routes the ticket
 to a human — see `REFUSAL_SIGNALS` in `tests/test_assistant.py`.
 
-Not covered: verifying the *absence of fabrication*. Substring matching cannot
-do that — it needs an LLM judge, which is v3.
+**Fabrication** (live model + judge) — whether an answer states policy its sources
+do not support. Citation validity proves an answer *named* a real source; it
+cannot prove the claims came from it. Only an entailment check can, so a separate
+LLM judge rules SUPPORTED / UNSUPPORTED on each answer against its own excerpts.
+
+### The judge is measured before it is trusted
+
+An unvalidated judge is worse than no judge: it manufactures confidence, and every
+red run sends someone hunting a bug in the assistant instead of in the instrument.
+So the judge is scored against 10 hand-labelled answers — 5 faithful, 5 fabricated
+— including the cases that actually discriminate: a true statement with a
+fabricated clause appended, a faithful paraphrase of "5–7 business days", an
+invented procedural step.
+
+| Judge model | Accuracy | Failure pattern |
+|---|---|---|
+| `qwen2.5:3b` (same as the product) | **60%** | Caught 5/5 fabrications but passed only 1/5 faithful answers — close to a constant "UNSUPPORTED" classifier, which scores 50% by doing nothing |
+| `qwen2.5:7b-instruct` | **100%** | — |
+
+That gap is why `JUDGE_MODEL` is configured separately from `LLM_MODEL`. Grading
+entailment is harder than answering the question, so a judge no stronger than the
+generator inherits its blind spots — here it would have condemned the assistant's
+own correct, well-cited answers as hallucinations.
+
+Two things that moved the 3B number and are worth knowing: phrasing the question
+positively ("is every fact supported?") instead of negatively ("does it state any
+fact *not* in the excerpts?") took it from 50% to 60%, because small models handle
+negation badly. Worked examples in the judge prompt helped too. Neither was enough
+— prompt engineering could not close a capability gap.
 
 ## What the prompt guardrail does not do
 
@@ -182,4 +212,6 @@ is the argument for defense in depth, with evidence on both sides.
   behind a human-in-the-loop confirmation gate — the model *proposes* a write,
   a person approves it, and the tool enforces its own preconditions rather than
   trusting the model to have checked them.
-- **v3** — LLM-as-judge evals for fabrication, Langfuse tracing (latency / cost / failure observability)
+- **v3 (current)** — LLM-as-judge evals for fabrication are done, with the judge
+  itself validated against a labelled set. Next: self-hosted Langfuse tracing for
+  latency, cost, and failure visibility.
