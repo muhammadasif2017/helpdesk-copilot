@@ -1,0 +1,18 @@
+# Normalize line endings. Without this, Git on Windows checks files out as CRLF
+# while storing them as LF, which produces diffs where every line looks changed
+# once anyone clones this on another platform.
+* text=auto eol=lf
+
+# Files that must keep CRLF to run on Windows.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.db binary
+*.onnx binary
