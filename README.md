@@ -8,6 +8,33 @@ The assistant answers support-policy questions grounded in a knowledge base
 (RAG), streams responses into the product UI, cites its sources, and refuses
 to invent policy it can't find.
 
+## Demo
+
+Real screenshots, unedited, running `qwen2.5:3b` locally on a CPU-only laptop.
+
+**A state-changing action is proposed, not performed.** The agent is working
+ticket #103 and asks to unlock the customer's account. The assistant does not
+unlock it — it asks:
+
+![The assistant proposing an account unlock, with Approve and Decline buttons](docs/demo-approval-gate.png)
+
+**Approving it still does not unlock the account.** Look closely at the proposal
+above: the model *invented* the verification details — `last4=5678`,
+`billing_zip=1234`. Priya's real values are `8823` and `10011`. So when a human
+clicks Approve, `unlock_account` checks identity itself and refuses:
+
+![The approved unlock refused by the tool: identity verification failed](docs/demo-guardrail.png)
+
+That is the whole argument for putting guardrails in tools rather than prompts.
+The model was wrong, the human approved it anyway, and nothing happened — because
+the check is a comparison in a function, not an instruction a model can be talked
+out of. Note ticket #101 now reads `escalated`: approvals really do act.
+
+**A grounded answer and an approved escalation**, showing citations, the
+retrieved sources, and a write that a human did approve:
+
+![A cited policy answer and an approved ticket escalation](docs/demo-approved.png)
+
 ## Architecture
 
 ```
