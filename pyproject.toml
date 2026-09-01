@@ -13,6 +13,11 @@ dependencies = [
     "sqlite-vec>=0.1.6",
 ]
 
+[project.optional-dependencies]
+# Tracing is opt-in: the app runs without it, and app/tracing.py no-ops when the
+# package or the keys are absent. Install with: uv sync --extra tracing
+tracing = ["langfuse>=2.0,<3"]
+
 [dependency-groups]
 dev = ["pytest>=8.3", "httpx>=0.28"]
 

@@ -1,0 +1,74 @@
+# Self-hosted Langfuse for local tracing. Nothing leaves this machine.
+#
+# Two deliberate choices:
+#
+# 1. Only the web UI publishes a host port, and only on 127.0.0.1. Postgres talks
+#    to Langfuse over the compose network, so this stack cannot collide with a
+#    Postgres or Redis you already run, and nothing is reachable off the machine.
+#
+# 2. Langfuse v2, not v3. v3 adds ClickHouse, Redis and MinIO — roughly 3-4 GB of
+#    services. On a 16 GB laptop already running a 7B judge model, that competes
+#    for RAM with the thing being measured. v2 is Postgres plus the web app, and
+#    covers what this project needs: traces, latency, token counts, errors.
+#
+#   docker compose -f docker-compose.langfuse.yml up -d     # start
+#   docker compose -f docker-compose.langfuse.yml down      # stop
+#   docker compose -f docker-compose.langfuse.yml down -v   # stop and wipe traces
+
+name: helpdesk-langfuse
+
+services:
+  langfuse-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # No host port: only langfuse reaches this, over the compose network.
+
+  langfuse:
+    image: langfuse/langfuse:2
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3100
+      # Local-only development secrets. Fine for a laptop instance that is not
+      # reachable off this machine; regenerate before running anywhere shared.
+      NEXTAUTH_SECRET: local-dev-nextauth-secret-change-me
+      SALT: local-dev-salt-change-me
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+
+      # Headless bootstrap: creates the org, project, user and API keys on first
+      # start against an empty database, so `up -d` gives a working instance with
+      # no click-through. These are local-only development credentials for a
+      # loopback-bound container — they are deliberately in version control so the
+      # stack is reproducible. Regenerate every one of them before running this
+      # anywhere reachable by anyone else.
+      LANGFUSE_INIT_ORG_ID: helpdesk
+      LANGFUSE_INIT_ORG_NAME: Helpdesk
+      LANGFUSE_INIT_PROJECT_ID: helpdesk-copilot
+      LANGFUSE_INIT_PROJECT_NAME: Helpdesk Copilot
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-local-dev-helpdesk
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-local-dev-helpdesk
+      # Must parse as a real email — "dev@localhost" fails validation and the
+      # container then crash-loops with only "Invalid environment variables".
+      LANGFUSE_INIT_USER_EMAIL: dev@example.com
+      LANGFUSE_INIT_USER_NAME: Local Dev
+      LANGFUSE_INIT_USER_PASSWORD: localdev12345
+
+volumes:
+  langfuse-db-data:

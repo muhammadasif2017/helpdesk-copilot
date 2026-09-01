@@ -177,6 +177,50 @@ fact *not* in the excerpts?") took it from 50% to 60%, because small models hand
 negation badly. Worked examples in the judge prompt helped too. Neither was enough
 — prompt engineering could not close a capability gap.
 
+## Observability
+
+Tracing goes to a **self-hosted Langfuse** — nothing leaves the machine.
+
+```bash
+docker compose -f docker-compose.langfuse.yml up -d   # UI at http://localhost:3100
+uv sync --extra tracing                               # install the SDK
+# copy the printed keys into .env, then run the app normally
+docker compose -f docker-compose.langfuse.yml down    # stop
+```
+
+Each turn is traced with its question, ticket, retrieved sources, tool activity,
+latency and final answer — and failed turns are traced too, since those are the
+ones most worth having a record of.
+
+Three deliberate constraints:
+
+**Opt-in.** With no keys set, `app/tracing.py` is inert and the app behaves as if
+it did not exist. On a laptop the tracing stack and the model compete for RAM.
+
+**It cannot break the product.** Every SDK call is guarded. One test wires in a
+client whose every method raises and asserts the turn still completes — an
+observability layer that takes production down with it is worse than none.
+
+**Isolated by default.** Only the web UI publishes a port, on `127.0.0.1:3100`.
+Langfuse's own Postgres has no host binding, so the stack cannot collide with a
+Postgres or Redis already running, and nothing is reachable off the machine. The
+project, user and API keys are bootstrapped headlessly, so `up -d` yields a
+working instance with no click-through.
+
+Langfuse **v2**, not v3: v3 adds ClickHouse, Redis and MinIO — roughly 3–4 GB of
+services that would compete for memory with the 7B judge. v2 is Postgres plus the
+web app and covers traces, latency, token counts and errors.
+
+### What tracing caught immediately
+
+The first real trace recorded an answer that was nothing but a citation —
+`[returns.md#Returns & Refunds Policy]` — with no answer in it. Intermittent, but
+real, and **83 tests could not see it**: the fabrication judge rules a bare
+citation SUPPORTED, because an answer stating no policy states nothing
+unsupported, and the content assertions for that question ran on a different
+code path. `test_answers_are_substantive_not_bare_citations` exists because a
+trace showed a failure mode the eval suite was structurally blind to.
+
 ## What the prompt guardrail does not do
 
 Two findings from building v2, both measured rather than assumed. They are the

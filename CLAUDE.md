@@ -88,6 +88,19 @@ The eval suite is the repo's main credibility signal. Treat it as product code.
 - Keep the dependency list short. Every added dep is one more thing a reviewer
   has to accept.
 
+## Tracing
+
+```bash
+docker compose -f docker-compose.langfuse.yml up -d     # Langfuse at :3100
+docker compose -f docker-compose.langfuse.yml down -v   # stop and wipe traces
+uv sync --extra tracing                                 # SDK, optional extra
+```
+
+- Tracing is opt-in via `LANGFUSE_*` keys and **must stay non-fatal**. Every SDK
+  call is wrapped; never let an exception from tracing reach the request path.
+- Port 3100, loopback only. Do not publish Langfuse's Postgres — the machine
+  already runs other Postgres/Redis containers on the default ports.
+
 ## Gotchas
 
 - `data/kb.db` is gitignored, so a fresh clone **fails all retrieval tests until
@@ -112,6 +125,9 @@ The eval suite is the repo's main credibility signal. Treat it as product code.
 - First LLM call after boot is much slower than the rest — Ollama is loading the
   model into RAM. Roughly 15-20s per call after that.
 - Windows converts LF→CRLF on checkout; files are committed as LF.
+- Langfuse's headless bootstrap validates `LANGFUSE_INIT_USER_EMAIL` as a real
+  email. `dev@localhost` fails, and the container then crash-loops reporting only
+  "Invalid environment variables" — the field name is buried further up the log.
 - **Never gate a merge on `pytest ... | tail`.** A shell pipeline reports the
   *last* command's status, so a failing suite piped through `tail` exits 0 and
   looks green. Read the summary line, or use `${PIPESTATUS[0]}`. This nearly put

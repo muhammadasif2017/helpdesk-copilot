@@ -8,7 +8,7 @@ alongside what it said. `main.py` forwards these events to the browser as-is.
 import json
 from collections.abc import Iterator
 
-from . import approvals, llm, rag, store, tools
+from . import approvals, llm, rag, store, tools, tracing
 
 # How many tool rounds before the assistant must answer with what it has.
 # Without a cap, a confused model can loop on tool calls indefinitely.
@@ -169,4 +169,24 @@ def answer(
     """Retrieve context and return (sources, event stream) for the open ticket."""
     scope = tools.scope_for(ticket_id)
     chunks = rag.search(question)
-    return chunks, _run(build_messages(question, chunks, scope), scope)
+
+    turn = tracing.start_turn(question, ticket_id)
+    turn.record_sources(chunks)
+
+    def traced() -> Iterator[dict]:
+        text = ""
+        try:
+            for event in _run(build_messages(question, chunks, scope), scope):
+                turn.record_event(event)
+                if "delta" in event:
+                    text += event["delta"]
+                yield event
+        except Exception as exc:
+            # A failed turn is the one most worth having a trace of.
+            turn.finish(text, error=repr(exc))
+            tracing.flush()
+            raise
+        turn.finish(text)
+        tracing.flush()
+
+    return chunks, traced()

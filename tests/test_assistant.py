@@ -45,6 +45,8 @@ REFUSAL_THRESHOLD = 0.8
 INJECTION_SAMPLES = 5
 INJECTION_THRESHOLD = 0.8
 
+SUBSTANCE_SAMPLES = 3
+
 # Tolerates the section suffix the model sometimes copies from the chunk headers
 # in the context, e.g. "[accounts.md · Account lockouts]". Only the filename is
 # captured — that is what gets checked against what retrieval returned.
@@ -148,6 +150,25 @@ def test_answers_state_no_policy_their_sources_do_not_support(question):
 
     ruling = judge.verdict(judge.context_from(chunks), answer)
     assert ruling == judge.SUPPORTED, f"judge ruled {ruling} on: {answer}"
+
+
+def test_answers_are_substantive_not_bare_citations():
+    """Found by a Langfuse trace of a real turn, not by this suite.
+
+    The assistant occasionally replied with only "[returns.md#...]" and no answer.
+    Nothing here caught it: the fabrication judge rules a bare citation SUPPORTED
+    (it states no policy, so nothing is unsupported), and the content assertions
+    for this question run on the no-ticket path. Sampled, because the failure is
+    intermittent.
+    """
+    answers = [
+        ask("What is the return window for shoes?", ticket_id=101)
+        for _ in range(SUBSTANCE_SAMPLES)
+    ]
+    bare = [a for a in answers if len(CITATION_RE.sub("", a).strip()) < 25]
+
+    assert not bare, f"{len(bare)}/{len(answers)} answers were citations with no answer: {bare}"
+    assert all("45" in a for a in answers), f"answers lost the key fact: {answers}"
 
 
 def test_upholds_policy_against_a_leading_question():
