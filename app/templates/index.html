@@ -34,7 +34,15 @@
 
     <aside class="assistant">
       <h2>Support assistant</h2>
-      <p class="hint">Ask about policy: returns, shipping, refunds, accounts. Answers cite the knowledge base.</p>
+      <label class="ticket-picker">
+        Working ticket
+        <select id="ticket-select">
+          {% for t in tickets %}
+          <option value="{{ t.id }}">#{{ t.id }} — {{ t.customer }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="hint">Ask about policy, or about this ticket's order. Order lookups are limited to the open ticket.</p>
       <div id="chat-log"></div>
       <form id="chat-form">
         <input id="chat-input" type="text" placeholder="e.g. What is the return window for shoes?" autocomplete="off">

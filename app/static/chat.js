@@ -26,6 +26,65 @@ function renderAction(action, before) {
   log.scrollTop = log.scrollHeight;
 }
 
+// State-changing actions are proposed, not performed. Nothing has happened when
+// this renders — the assistant is asking the agent to approve it.
+function renderProposal(proposal, before) {
+  const args = Object.entries(proposal.arguments || {})
+    .map(([k, v]) => `${k}=${v}`)
+    .join(", ");
+
+  const card = document.createElement("div");
+  card.className = "proposal";
+
+  const label = document.createElement("div");
+  label.className = "proposal-label";
+  label.textContent = `Needs your approval: ${proposal.tool}(${args})`;
+  card.appendChild(label);
+
+  const row = document.createElement("div");
+  row.className = "proposal-actions";
+
+  const settle = async (endpoint, verb) => {
+    row.remove();
+    label.textContent = `${verb}… ${proposal.tool}(${args})`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proposal_id: proposal.id }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      card.classList.add("proposal-error");
+      label.textContent = `${proposal.tool}(${args}) — ${data.error}`;
+    } else if (data.declined) {
+      card.classList.add("proposal-declined");
+      label.textContent = `Declined: ${proposal.tool}(${args})`;
+    } else if (data.result && data.result.error) {
+      card.classList.add("proposal-error");
+      label.textContent = `Refused: ${proposal.tool}(${args}) — ${data.result.error}`;
+    } else {
+      card.classList.add("proposal-done");
+      label.textContent = `Approved: ${proposal.tool}(${args})`;
+    }
+  };
+
+  const approve = document.createElement("button");
+  approve.type = "button";
+  approve.textContent = "Approve";
+  approve.addEventListener("click", () => settle("/api/approve", "Approving"));
+
+  const decline = document.createElement("button");
+  decline.type = "button";
+  decline.className = "secondary";
+  decline.textContent = "Decline";
+  decline.addEventListener("click", () => settle("/api/decline", "Declining"));
+
+  row.append(approve, decline);
+  card.appendChild(row);
+  log.insertBefore(card, before);
+  log.scrollTop = log.scrollHeight;
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const question = input.value.trim();
@@ -37,7 +96,10 @@ form.addEventListener("submit", async (e) => {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({
+      question,
+      ticket_id: Number(document.getElementById("ticket-select").value),
+    }),
   });
 
   const reader = res.body.getReader();
@@ -58,6 +120,7 @@ form.addEventListener("submit", async (e) => {
       const msg = JSON.parse(data);
       if (msg.sources) sources = msg.sources;
       if (msg.action) renderAction(msg.action, answer);
+      if (msg.proposal) renderProposal(msg.proposal, answer);
       if (msg.delta) {
         text += msg.delta;
         answer.textContent = text;

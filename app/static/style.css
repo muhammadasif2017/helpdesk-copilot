@@ -47,6 +47,22 @@ th { color: #6b7688; font-weight: 600; font-size: 12px; }
 }
 .status-pending { background: #fef3e2; color: #b45309; }
 .hint { font-size: 12px; color: #6b7688; margin: 0 0 10px; }
+.ticket-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7688;
+  margin-bottom: 8px;
+}
+.ticket-picker select {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid #cfd6e0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1c2330;
+}
 #chat-log {
   height: 340px;
   overflow-y: auto;
@@ -76,6 +92,29 @@ th { color: #6b7688; font-weight: 600; font-size: 12px; }
   border-radius: 6px;
   padding: 4px 8px;
 }
+.proposal {
+  align-self: stretch;
+  border: 1px solid #f0c98a;
+  background: #fffaf0;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.proposal-label {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  color: #8a5a10;
+  line-height: 1.5;
+}
+.proposal-actions { display: flex; gap: 6px; margin-top: 7px; }
+.proposal-actions button { padding: 4px 12px; font-size: 12px; }
+.proposal-actions button.secondary { background: #fff; color: #6b7688; border: 1px solid #cfd6e0; }
+.proposal-done { border-color: #b7dfc0; background: #f4fbf5; }
+.proposal-done .proposal-label { color: #1f7a37; }
+.proposal-declined { border-color: #cfd6e0; background: #f7f8fa; }
+.proposal-declined .proposal-label { color: #6b7688; }
+.proposal-error { border-color: #f0b3b3; background: #fdf5f5; }
+.proposal-error .proposal-label { color: #a83232; }
+
 #chat-form { display: flex; gap: 8px; }
 #chat-input {
   flex: 1;
