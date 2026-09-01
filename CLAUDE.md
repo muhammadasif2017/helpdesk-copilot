@@ -93,11 +93,22 @@ The eval suite is the repo's main credibility signal. Treat it as product code.
 - `data/kb.db` is gitignored, so a fresh clone **fails all retrieval tests until
   `scripts/ingest.py` runs**. This is the first thing to check on unexplained
   test failures.
-- `uv run uvicorn ...` spawns uvicorn as a *child* of the uv wrapper. Killing the
-  wrapper orphans the server and it keeps holding port 8000 — the next start
-  fails with `WinError 10013`, which reads like a permissions error but isn't.
-  Diagnose with `Get-NetTCPConnection -LocalPort 8000`. For scripted start/stop,
-  run `.venv\Scripts\python.exe -m uvicorn` directly.
+- **Uvicorn orphans hold port 8000.** It runs as a child process, so killing the
+  process you launched leaves the child alive still holding the socket. The next
+  start then fails with `WinError 10013`, which reads like a permissions error
+  but isn't. Running `.venv\Scripts\python.exe -m uvicorn` instead of `uv run`
+  does *not* avoid this — there is still a child.
+  Confusingly, `netstat`/`Get-NetTCPConnection` report the socket as owned by the
+  dead parent PID, so the PID they name may not exist. Find the real holder by
+  parent:
+
+  ```powershell
+  Get-CimInstance Win32_Process -Filter "Name like '%python%'" |
+      Select-Object ProcessId, ParentProcessId, CommandLine
+  ```
+
+  Always kill the whole tree: `taskkill /PID <pid> /T /F`. Verify the port is
+  genuinely free by binding it, not by reading the connection table.
 - First LLM call after boot is much slower than the rest — Ollama is loading the
   model into RAM. Roughly 15-20s per call after that.
 - Windows converts LF→CRLF on checkout; files are committed as LF.

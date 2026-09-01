@@ -66,6 +66,16 @@ th { color: #6b7688; font-weight: 600; font-size: 12px; }
 .bubble.user { align-self: flex-end; background: #1a56db; color: #fff; }
 .bubble.assistant { align-self: flex-start; background: #eef1f5; }
 .sources { margin-top: 6px; font-size: 11px; color: #6b7688; }
+.action {
+  align-self: flex-start;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  color: #3b4a63;
+  background: #f3f6fb;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
 #chat-form { display: flex; gap: 8px; }
 #chat-input {
   flex: 1;

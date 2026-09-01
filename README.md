@@ -13,12 +13,32 @@ to invent policy it can't find.
 ```
 Browser (ticket UI + chat widget, vanilla JS, SSE streaming)
    │
-FastAPI  ──  app/assistant.py   orchestration: retrieve → grounded prompt → stream
-   │            ├── app/rag.py  fastembed (bge-small, ONNX, CPU) + sqlite-vec
-   │            └── app/llm.py  OpenAI-compatible client (Groq or Ollama, env-swappable)
+FastAPI  ──  app/assistant.py   agent loop: retrieve → grounded prompt → tools → stream
+   │            ├── app/rag.py    fastembed (bge-small, ONNX, CPU) + sqlite-vec
+   │            ├── app/tools.py  tool schemas, dispatch, input validation
+   │            ├── app/store.py  demo order/ticket data the tools read
+   │            └── app/llm.py    OpenAI-compatible client (Groq or Ollama, env-swappable)
    │
 SQLite (data/kb.db) — chunks + vector index in one file, no external services
 ```
+
+A turn is emitted as typed events — `sources`, then any `action`, then `delta`
+text — so the UI can show *what the assistant did* before what it concluded.
+Tool activity is rendered in the transcript rather than hidden: an assistant that
+can act inside a product has to be auditable by the person whose ticket it is.
+
+## Tools
+
+| Tool | Kind | Behavior |
+|---|---|---|
+| `lookup_order` | read | Returns order status, carrier, tracking, charges. Reports missing orders instead of inventing them. |
+
+Tools validate their own inputs and fail closed. A tool never assumes the model
+checked something first, because the model's decision can be steered by retrieved
+content — which is exactly what one of the evals tries to do.
+
+The loop is capped at `MAX_TOOL_STEPS` rounds so a confused model can't loop
+indefinitely.
 
 Everything runs on open-source components; total cost $0.
 
@@ -55,20 +75,31 @@ Open http://localhost:8000 — ask the assistant things like:
 Two suites, split by cost so the fast one can gate every commit:
 
 ```bash
-uv run pytest -m "not llm"   # retrieval + API/SSE, ~4s, LLM stubbed
-uv run pytest -m llm         # live model behavior, ~2min on CPU
+uv run pytest -m "not llm"   # retrieval, tools, API/SSE — 20 tests, ~12s, model stubbed
+uv run pytest -m llm         # live model behavior — 14 tests, ~3.5min on CPU
 ```
 
 **Retrieval** (8 tests) — each probe question must surface the document that
 actually holds the answer. Retrieval quality bounds answer quality: if the right
 chunk never reaches the prompt, no prompt engineering saves the answer.
 
-**API** (3 tests) — asserts the real product path: `POST /api/chat` emits a
-`sources` event, then `delta` events, then `[DONE]`. Only the LLM call is stubbed.
+**Tools** (7 tests) — dispatch, input coercion, unknown tools, bad arguments, and
+that every registered tool has a matching schema. No model involved.
 
-**Behavior** (9 tests, live model) — grounding, refusal, and both prompt-injection
-channels: the user turn, and *retrieved content* (the one that matters for RAG,
-since anyone who can edit a KB article can plant instructions in the prompt).
+**API** (5 tests) — the real product path with the model stubbed: SSE event order,
+a full tool round trip, and that a tool error surfaces as an action result.
+
+**Behavior** (14 tests, live model) — grounding, refusal, citation validity, tool
+routing, and prompt injection through both channels: the user turn, and
+*retrieved content*. The latter now matters more than it did in v1 — a planted
+instruction reaching a system that can *act* is worse than one reaching a system
+that can only answer, so an eval asserts that retrieved text cannot induce a tool
+call.
+
+Tool routing is asserted in both directions: order questions must call the tool
+with the right ID, policy questions must *not* call it (the tool layer must not
+cannibalize the RAG path), and a question with no order ID must not produce a
+fabricated one.
 
 Citations are checked for *validity*, not just presence: every `[file.md]` in an
 answer must name a document retrieval actually returned. That catches invented
@@ -90,7 +121,11 @@ do that — it needs an LLM judge, which is v3.
 
 ## Roadmap
 
-- **v1 (this)** — product shell, RAG with citations, streaming, grounding and
-  injection guardrails, eval suite
-- **v2** — tool-calling actions (look up an order, escalate a ticket, unlock an account)
+- **v1** — product shell, RAG with citations, streaming, grounding and injection
+  guardrails, eval suite
+- **v2 (current)** — tool-calling. `lookup_order` (read) is done; next are the
+  state-changing actions (escalate a ticket, unlock an account), which land
+  behind a human-in-the-loop confirmation gate — the model *proposes* a write,
+  a person approves it, and the tool enforces its own preconditions rather than
+  trusting the model to have checked them.
 - **v3** — LLM-as-judge evals for fabrication, Langfuse tracing (latency / cost / failure observability)

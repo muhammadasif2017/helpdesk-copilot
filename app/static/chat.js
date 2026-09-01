@@ -11,6 +11,21 @@ function addBubble(cls, text) {
   return div;
 }
 
+// Tool activity is shown, not hidden: an agent that can act inside the product
+// has to be auditable by the person whose ticket it is acting on.
+function renderAction(action, before) {
+  const args = Object.entries(action.arguments || {})
+    .map(([k, v]) => `${k}=${v}`)
+    .join(", ");
+  const el = document.createElement("div");
+  el.className = "action";
+  el.textContent = action.result && action.result.error
+    ? `⚠ ${action.tool}(${args}) — ${action.result.error}`
+    : `⚙ ${action.tool}(${args})`;
+  log.insertBefore(el, before);
+  log.scrollTop = log.scrollHeight;
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const question = input.value.trim();
@@ -42,6 +57,7 @@ form.addEventListener("submit", async (e) => {
       if (!data || data === "[DONE]") continue;
       const msg = JSON.parse(data);
       if (msg.sources) sources = msg.sources;
+      if (msg.action) renderAction(msg.action, answer);
       if (msg.delta) {
         text += msg.delta;
         answer.textContent = text;
