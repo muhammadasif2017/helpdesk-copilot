@@ -124,6 +124,19 @@ uv sync --extra tracing                                 # SDK, optional extra
   genuinely free by binding it, not by reading the connection table.
 - First LLM call after boot is much slower than the rest — Ollama is loading the
   model into RAM. Roughly 15-20s per call after that.
+- **A whole-suite red on `-m llm` usually means Ollama is not running**, not a
+  model regression. Every test fails with `openai.APIConnectionError`, and the
+  connection retries make the run take *longer* than a passing one — a 38-test
+  suite spent 14 minutes failing to connect. Ollama does not always come back up
+  with Windows. Check the backend before reading a single assertion:
+
+  ```bash
+  curl -s http://localhost:11434/api/tags   # models listed = up; empty = down
+  ```
+
+  Start it with `ollama serve`, and confirm both `LLM_MODEL` and `JUDGE_MODEL`
+  appear in that list — a judge model that was never pulled fails the same way,
+  but only in `test_judge.py`.
 - Windows converts LF→CRLF on checkout; files are committed as LF.
 - Langfuse's headless bootstrap validates `LANGFUSE_INIT_USER_EMAIL` as a real
   email. `dev@localhost` fails, and the container then crash-loops reporting only
