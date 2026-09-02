@@ -129,7 +129,7 @@ Two suites, split by cost so the fast one can gate every commit:
 
 ```bash
 uv run pytest -m "not llm"   # retrieval, tools, approvals, API, tracing — 57 tests, ~6s, model stubbed
-uv run pytest -m llm         # live model behavior — 16 tests, ~10min on CPU
+uv run pytest -m llm         # live model behavior — 38 tests, ~30min on CPU
 ```
 
 **Retrieval** (8 tests) — each probe question must surface the document that
