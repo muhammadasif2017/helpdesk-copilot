@@ -11,6 +11,7 @@ boolean here would be a coin flip dressed up as a test.
 Run with:  uv run pytest -m llm
 """
 
+import json
 import re
 
 import pytest
@@ -150,6 +151,45 @@ def test_answers_state_no_policy_their_sources_do_not_support(question):
 
     ruling = judge.verdict(judge.context_from(chunks), answer)
     assert ruling == judge.SUPPORTED, f"judge ruled {ruling} on: {answer}"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Where is order 4471?",
+        "What's the status of order 4471?",
+    ],
+)
+def test_answers_built_from_tool_results_add_no_unsupported_policy(question):
+    """Regression, found by driving the real UI rather than by this suite.
+
+    Given order 4471 as delivered, the assistant reported the order correctly and
+    then volunteered "since the order has already been delivered, returns are not
+    possible" — contradicting returns.md, which grants 45 days *from* delivery.
+
+    The existing fabrication eval could not catch it: it only covers the RAG path,
+    and there the model has no tool result to over-interpret. The judge is given
+    the excerpts *and* the tool results, so real order facts count as supported
+    and only invented policy fails.
+    """
+    chunks, events = assistant.answer(question, ticket_id=101)
+
+    text, actions = "", []
+    for event in events:
+        if "delta" in event:
+            text += event["delta"]
+        elif "action" in event:
+            actions.append(event["action"])
+
+    assert actions, "expected a tool call for an order question"
+
+    context = (
+        judge.context_from(chunks)
+        + "\n\n--- tool results (facts the assistant may state) ---\n"
+        + json.dumps([a["result"] for a in actions], indent=2)
+    )
+    ruling = judge.verdict(context, text)
+    assert ruling == judge.SUPPORTED, f"judge ruled {ruling} on: {text}"
 
 
 def test_answers_are_substantive_not_bare_citations():

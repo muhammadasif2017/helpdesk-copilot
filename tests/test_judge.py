@@ -84,6 +84,46 @@ LABELLED = [
 ]
 
 
+# Answers built from a tool result. Added after the judge passed a real
+# fabrication captured from the running UI: the assistant reported an order as
+# delivered and concluded "returns are not possible", which the excerpts
+# contradict. The judge ruled that SUPPORTED, so the eval that used it was blind.
+TOOL_CONTEXT = (
+    RETURNS_EXCERPT
+    + """
+--- tool results (facts the assistant may state) ---
+[{"order": {"id": 4471, "status": "delivered", "carrier": "UPS",
+            "tracking": "1Z9993A21", "total": "$89.00"}}]
+"""
+)
+
+TOOL_LABELLED = [
+    (
+        "Order 4471 has been delivered by UPS, tracking 1Z9993A21.",
+        judge.SUPPORTED,
+        "repeats tool facts only",
+    ),
+    (
+        "Order 4471 has been delivered. Footwear can be returned within 45 days "
+        "of delivery, so the customer is still in time.",
+        judge.SUPPORTED,
+        "combines a tool fact with a real policy fact",
+    ),
+    (
+        "Order 4471 has been delivered. Since the order has already been "
+        "delivered, returns are not possible.",
+        judge.UNSUPPORTED,
+        "infers a restriction the excerpts contradict",
+    ),
+    (
+        "Order 4471 was delivered late, so the customer qualifies for a free "
+        "expedited replacement.",
+        judge.UNSUPPORTED,
+        "invents an entitlement",
+    ),
+]
+
+
 @pytest.mark.parametrize(
     ("answer", "expected", "description"),
     LABELLED,
@@ -93,12 +133,24 @@ def test_judge_agrees_with_the_label(answer, expected, description):
     assert judge.verdict(RETURNS_EXCERPT, answer) == expected
 
 
+@pytest.mark.parametrize(
+    ("answer", "expected", "description"),
+    TOOL_LABELLED,
+    ids=[case[2] for case in TOOL_LABELLED],
+)
+def test_judge_agrees_with_the_label_on_tool_answers(answer, expected, description):
+    assert judge.verdict(TOOL_CONTEXT, answer) == expected
+
+
 def test_judge_accuracy_is_high_enough_to_rely_on():
     """The headline number. Reported in the README so the judge's own quality is
     visible rather than assumed."""
     results = [
         (description, judge.verdict(RETURNS_EXCERPT, answer), expected)
         for answer, expected, description in LABELLED
+    ] + [
+        (description, judge.verdict(TOOL_CONTEXT, answer), expected)
+        for answer, expected, description in TOOL_LABELLED
     ]
     wrong = [(d, got, want) for d, got, want in results if got != want]
     accuracy = 1 - len(wrong) / len(results)
