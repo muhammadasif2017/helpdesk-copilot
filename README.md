@@ -136,7 +136,7 @@ uv run pytest -m llm         # live model behavior — 16 tests, ~10min on CPU
 actually holds the answer. Retrieval quality bounds answer quality: if the right
 chunk never reaches the prompt, no prompt engineering saves the answer.
 
-**Tools** (23 tests) — dispatch, input validation, ticket scoping, and the
+**Tools** (27 tests) — dispatch, input validation, ticket scoping, and the
 identity check on `unlock_account`, including that a partial verification is
 refused and that the model cannot widen its own scope by passing one. No model
 involved: these are the controls that must hold when the model is wrong.
@@ -144,12 +144,15 @@ involved: these are the controls that must hold when the model is wrong.
 **Approvals** (4 tests) — a proposal can be claimed once, never replayed, and ids
 are unguessable.
 
-**API** (12 tests) — the real product path with the model stubbed: SSE event
+**Tracing** (5 tests) — the turn still completes when the tracing backend raises,
+and a failed turn is still recorded.
+
+**API** (13 tests) — the real product path with the model stubbed: SSE event
 order, a tool round trip, and the whole approval gate — a write changes nothing
 until approved, approving twice fails, declining executes nothing, and a client
 that names its own tool and arguments is ignored in favor of the server's record.
 
-**Behavior** (16 tests, live model) — grounding, refusal, citation validity, tool
+**Behavior** (23 tests, live model) — grounding, refusal, citation validity, tool
 routing, the proposal gate under a real model, and prompt injection through both
 channels. Injection resistance is measured as a rate for the same reason refusal
 is; see the findings section above for why that matters here.
@@ -276,13 +279,18 @@ is the argument for defense in depth, with evidence on both sides.
 
 ## Roadmap
 
+All three shipped. Kept as a build log — each version is the previous one plus
+the controls the previous one turned out to need.
+
 - **v1** — product shell, RAG with citations, streaming, grounding and injection
-  guardrails, eval suite
-- **v2 (current)** — tool-calling. `lookup_order` (read) is done; next are the
-  state-changing actions (escalate a ticket, unlock an account), which land
-  behind a human-in-the-loop confirmation gate — the model *proposes* a write,
-  a person approves it, and the tool enforces its own preconditions rather than
-  trusting the model to have checked them.
-- **v3 (current)** — LLM-as-judge evals for fabrication are done, with the judge
-  itself validated against a labelled set. Next: self-hosted Langfuse tracing for
-  latency, cost, and failure visibility.
+  guardrails, eval suite.
+- **v2** — tool-calling. `lookup_order` (read), and the state-changing actions
+  (escalate a ticket, unlock an account) behind a human-in-the-loop confirmation
+  gate — the model *proposes* a write, a person approves it, and the tool
+  enforces its own preconditions rather than trusting the model to have checked
+  them.
+- **v3** — LLM-as-judge evals for fabrication, with the judge itself validated
+  against a labelled set, and self-hosted Langfuse tracing for latency, cost and
+  failure visibility. The judge covers the tool-call path as well as the RAG one:
+  an answer that reasons a policy restriction out of a real order fact is a
+  fabrication, and the RAG-only eval was structurally unable to see it.

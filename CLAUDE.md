@@ -21,7 +21,7 @@ uv run python scripts/ingest.py      # build data/kb.db — REQUIRED before test
 uv run uvicorn app.main:app --reload # serve on :8000
 uv run pytest -m "not llm"           # fast suite, ~4s, LLM stubbed
 uv run pytest -m llm                 # live-model suite, ~2min on CPU
-uv run pytest                        # everything, 20 tests
+uv run pytest                        # everything, 95 tests
 ```
 
 ## Architecture
