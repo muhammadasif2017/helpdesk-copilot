@@ -237,7 +237,7 @@ Each turn is traced with its question, ticket, retrieved sources, tool activity,
 latency and final answer — and failed turns are traced too, since those are the
 ones most worth having a record of.
 
-Three deliberate constraints:
+Four deliberate constraints:
 
 **Opt-in.** With no keys set, `app/tracing.py` is inert and the app behaves as if
 it did not exist. On a laptop the tracing stack and the model compete for RAM.
@@ -245,6 +245,13 @@ it did not exist. On a laptop the tracing stack and the model compete for RAM.
 **It cannot break the product.** Every SDK call is guarded. One test wires in a
 client whose every method raises and asserts the turn still completes — an
 observability layer that takes production down with it is worse than none.
+
+**It cannot stall the product either.** "Guarded" is not enough on its own: the
+SDK's defaults are a 20-second timeout and three retries, so a backend that is
+configured but not running costs about 15 seconds *per turn* — measured — with
+nothing raised and nothing logged. The client is built with `timeout=2,
+max_retries=1`, which brings that to about 4.5 seconds while a healthy backend
+stays at 0.6. A hang is the same outage as an exception, just harder to diagnose.
 
 **Isolated by default.** Only the web UI publishes a port, on `127.0.0.1:3100`.
 Langfuse's own Postgres has no host binding, so the stack cannot collide with a
