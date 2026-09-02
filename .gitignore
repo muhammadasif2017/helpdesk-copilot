@@ -5,3 +5,4 @@ __pycache__/
 data/
 .cache/
 .serena/
+.playwright-mcp/
