@@ -128,7 +128,7 @@ Open http://localhost:8000 — ask the assistant things like:
 Two suites, split by cost so the fast one can gate every commit:
 
 ```bash
-uv run pytest -m "not llm"   # retrieval, tools, approvals, API — 47 tests, ~7s, model stubbed
+uv run pytest -m "not llm"   # retrieval, tools, approvals, API, tracing — 57 tests, ~6s, model stubbed
 uv run pytest -m llm         # live model behavior — 16 tests, ~10min on CPU
 ```
 
@@ -186,15 +186,29 @@ LLM judge rules SUPPORTED / UNSUPPORTED on each answer against its own excerpts.
 
 An unvalidated judge is worse than no judge: it manufactures confidence, and every
 red run sends someone hunting a bug in the assistant instead of in the instrument.
-So the judge is scored against 10 hand-labelled answers — 5 faithful, 5 fabricated
-— including the cases that actually discriminate: a true statement with a
-fabricated clause appended, a faithful paraphrase of "5–7 business days", an
-invented procedural step.
+So the judge is scored against 14 hand-labelled answers — 7 faithful, 7
+fabricated — including the cases that actually discriminate: a true statement
+with a fabricated clause appended, a faithful paraphrase of "5–7 business days",
+an invented procedural step.
+
+Four of those cases put a tool result in front of the judge alongside the
+excerpts, because the tool path fabricates differently. There the model has real
+facts to reason *from*, and the failure is a conclusion drawn out of them — an
+order reported as delivered, followed by "so returns are no longer possible",
+which the excerpts contradict by granting 45 days *from* delivery. Order facts
+are supported and may be repeated; a rule about what the customer may do is
+policy, and policy has to come from the excerpts.
 
 | Judge model | Accuracy | Failure pattern |
 |---|---|---|
-| `qwen2.5:3b` (same as the product) | **60%** | Caught 5/5 fabrications but passed only 1/5 faithful answers — close to a constant "UNSUPPORTED" classifier, which scores 50% by doing nothing |
-| `qwen2.5:7b-instruct` | **100%** | — |
+| `qwen2.5:3b` (same as the product) | **64%** (9/14) | Caught 7/7 fabrications but passed only 2/7 faithful answers — close to a constant "UNSUPPORTED" classifier, which scores 50% by doing nothing |
+| `qwen2.5:7b-instruct` | **100%** (14/14) | — |
+
+The 3B judge fails the tool cases the same way it fails the rest: it rules a real
+order fact combined with a real policy fact UNSUPPORTED, while still catching
+both tool-path fabrications. Adding harder cases did not change the shape of the
+gap, which is the useful result — the 3B judge is not close to usable and a wider
+case set does not rescue it.
 
 That gap is why `JUDGE_MODEL` is configured separately from `LLM_MODEL`. Grading
 entailment is harder than answering the question, so a judge no stronger than the
@@ -203,9 +217,10 @@ own correct, well-cited answers as hallucinations.
 
 Two things that moved the 3B number and are worth knowing: phrasing the question
 positively ("is every fact supported?") instead of negatively ("does it state any
-fact *not* in the excerpts?") took it from 50% to 60%, because small models handle
-negation badly. Worked examples in the judge prompt helped too. Neither was enough
-— prompt engineering could not close a capability gap.
+fact *not* in the excerpts?") took it from 50% to 60% on the original ten cases,
+because small models handle negation badly. Worked examples in the judge prompt
+helped too. Neither was enough — prompt engineering could not close a capability
+gap, and the four tool cases added later did not move it off that plateau.
 
 ## Observability
 

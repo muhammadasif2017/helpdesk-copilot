@@ -19,7 +19,7 @@ Changes that make it look more like a generic chatbot demo work against that.
 uv sync --group dev                  # install (dev group holds pytest + httpx)
 uv run python scripts/ingest.py      # build data/kb.db — REQUIRED before tests or first run
 uv run uvicorn app.main:app --reload # serve on :8000
-uv run pytest -m "not llm"           # fast suite, ~4s, LLM stubbed
+uv run pytest -m "not llm"           # fast suite, 57 tests, ~6s, LLM stubbed
 uv run pytest -m llm                 # live-model suite, ~2min on CPU
 uv run pytest                        # everything, 95 tests
 ```
