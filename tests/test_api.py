@@ -57,6 +57,22 @@ def test_index_renders_the_ticket_queue(client):
     assert "Wrong size shoes" in response.text
 
 
+def test_the_script_tag_is_stamped_so_a_changed_chat_js_reaches_the_browser(client):
+    """Found in the browser: a fixed chat.js kept not running. StaticFiles sends
+    no Cache-Control, so the browser served a cached copy and the fix was
+    invisible — including across a reload and a fresh tab.
+    """
+    body = client.get("/").text
+    assert "/static/chat.js?v=" in body, "script tag is not cache-busted"
+
+
+def test_the_browser_does_not_get_a_404_for_the_favicon(client):
+    """Found by driving the app in a browser: every page load logged a console
+    404. Harmless on its own, but console noise is where real errors go to hide.
+    """
+    assert client.get("/favicon.ico").status_code == 204
+
+
 def test_chat_streams_sources_then_deltas_then_done(client, monkeypatch):
     stub_model(monkeypatch, [text_delta(d) for d in STUB_DELTAS])
 

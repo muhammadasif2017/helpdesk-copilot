@@ -26,6 +26,19 @@ function renderAction(action, before) {
   log.scrollTop = log.scrollHeight;
 }
 
+async function refreshTicketQueue() {
+  const rows = document.getElementById("ticket-rows");
+  if (!rows) return;
+  try {
+    const res = await fetch(window.location.pathname, { headers: { "Cache-Control": "no-cache" } });
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    const fresh = doc.getElementById("ticket-rows");
+    if (fresh) rows.replaceChildren(...fresh.children);
+  } catch {
+    // A stale queue is a cosmetic problem; never let it break the chat panel.
+  }
+}
+
 // State-changing actions are proposed, not performed. Nothing has happened when
 // this renders — the assistant is asking the agent to approve it.
 function renderProposal(proposal, before) {
@@ -65,6 +78,10 @@ function renderProposal(proposal, before) {
     } else {
       card.classList.add("proposal-done");
       label.textContent = `Approved: ${proposal.tool}(${args})`;
+      // An approved write changes ticket state, and the queue on the left was
+      // rendered before it happened. Re-render just the rows so the agent is not
+      // reading a stale status; reloading the page would take the chat with it.
+      refreshTicketQueue();
     }
   };
 

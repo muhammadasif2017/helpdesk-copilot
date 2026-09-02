@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -19,11 +19,31 @@ app = FastAPI(title="Acme Helpdesk")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
+def asset_version() -> int:
+    """Cache-buster for the one script tag.
+
+    StaticFiles sends no Cache-Control, so browsers fall back to heuristic
+    caching and keep serving an old chat.js after it changes — a shipped fix
+    then never reaches the page. Stamping the mtime makes the URL change with
+    the file.
+    """
+    return int((BASE_DIR / "static" / "chat.js").stat().st_mtime)
+
+
 @app.get("/")
 def index(request: Request):
     return templates.TemplateResponse(
-        request, "index.html", {"tickets": store.TICKETS}
+        request,
+        "index.html",
+        {"tickets": store.TICKETS, "asset_version": asset_version()},
     )
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """No icon to serve, but a 404 on every page load is noise in the console
+    that makes real errors easier to miss."""
+    return Response(status_code=204)
 
 
 @app.post("/api/chat")

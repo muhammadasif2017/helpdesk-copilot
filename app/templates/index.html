@@ -19,7 +19,7 @@
         <thead>
           <tr><th>#</th><th>Customer</th><th>Subject</th><th>Status</th></tr>
         </thead>
-        <tbody>
+        <tbody id="ticket-rows">
           {% for t in tickets %}
           <tr>
             <td>{{ t.id }}</td>
@@ -51,6 +51,6 @@
     </aside>
   </main>
 
-  <script src="/static/chat.js"></script>
+  <script src="/static/chat.js?v={{ asset_version }}"></script>
 </body>
 </html>
