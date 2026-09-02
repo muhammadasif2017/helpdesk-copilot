@@ -58,6 +58,33 @@ def test_a_turn_without_tracing_is_inert():
     tracing.flush()
 
 
+def test_the_client_is_built_with_a_bounded_timeout(monkeypatch):
+    """A backend that hangs must cost a turn seconds, not most of a minute.
+
+    The SDK's own defaults (20s, three retries) are the failure this guards: they
+    are silent, so the product stays correct and becomes unusably slow, which is
+    harder to diagnose than an outright error.
+    """
+    langfuse = pytest.importorskip("langfuse")
+
+    built = {}
+
+    class FakeLangfuse:
+        def __init__(self, **kwargs):
+            built.update(kwargs)
+
+    monkeypatch.setattr(langfuse, "Langfuse", FakeLangfuse)
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    tracing.reset()
+
+    assert tracing._get_client() is not None
+    assert built["timeout"] <= 5, f"timeout of {built['timeout']}s stalls every turn"
+    # Not `<= 1`: the SDK reads a falsy max_retries as unset and restores its
+    # default of 3, so 0 would pass a check for "small" while behaving as 3.
+    assert built["max_retries"] == 1
+
+
 def test_a_broken_backend_does_not_break_the_turn(monkeypatch):
     monkeypatch.setattr(tracing, "_get_client", lambda: Boom())
 

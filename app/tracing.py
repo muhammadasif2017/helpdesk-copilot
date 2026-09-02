@@ -24,6 +24,21 @@ from typing import Any
 _client: Any = None
 _client_ready = False
 
+# Rule 2 is about exceptions, but a request that hangs is the same failure in a
+# different coat — the product is equally unusable either way. Measured against a
+# host refusing connections, the SDK's own defaults cost about 15 seconds per
+# turn, nearly all of it in the flush; these settings bring that to about 4.5. A
+# healthy backend costs 0.6s either way, so this buys latency under failure at no
+# cost when things work.
+#
+# _MAX_RETRIES must not be 0: the SDK reads a falsy value as unset and restores
+# its default of 3, which measures *slower* than 1. And the timeout stays at 2
+# rather than 1 because a trace POST competes with model inference on this
+# machine — a tighter bound would start dropping traces from healthy runs, which
+# is the failure observability exists to avoid.
+_TIMEOUT_SECONDS = 2
+_MAX_RETRIES = 1
+
 
 def enabled() -> bool:
     return bool(
@@ -48,6 +63,8 @@ def _get_client() -> Any:
             public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
             secret_key=os.environ["LANGFUSE_SECRET_KEY"],
             host=os.environ.get("LANGFUSE_HOST", "http://localhost:3100"),
+            timeout=_TIMEOUT_SECONDS,
+            max_retries=_MAX_RETRIES,
         )
     except Exception:
         _client = None
